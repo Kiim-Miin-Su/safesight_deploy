@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>YOLO 안전 장비 감지</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            padding: 2rem;
+        }
+        #video-stream {
+            width: 640px;
+            height: auto;
+            border: 2px solid #aaa;
+            margin-top: 1rem;
+        }
+        #status {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-top: 1rem;
+        }
+        #violation-list {
+            font-size: 1rem;
+            margin-top: 0.5rem;
+            color: crimson;
+        }
+    </style>
+</head>
+<body>
+    <h2>작업을 선택하고 감지를 시작하세요</h2>
+    <form id="task-form">
+        <label for="task">작업 종류: </label>
+        <select id="task" name="task">
+            <option value="고소작업">고소작업</option>
+            <option value="용접작업">용접작업</option>
+            <option value="전기작업">전기작업</option>
+            <option value="기계조작">기계조작</option>
+            <option value="화학물질 취급">화학물질 취급</option>
+            <option value="중장비 운전">중장비 운전</option>
+        </select>
+        <button type="submit">감지 시작</button>
+    </form>
+
+    <img id="video-stream" src="" alt="영상 스트림" />
+    <p id="status">감지 대기 중</p>
+    <div id="violation-list"></div>
+
+    <script>
+        const taskForm = document.getElementById("task-form");
+        const taskSelect = document.getElementById("task");
+        const videoStream = document.getElementById("video-stream");
+        const statusText = document.getElementById("status");
+        const violationList = document.getElementById("violation-list");
+
+        let polling = null;
+
+        function startPollingViolations() {
+            if (polling) clearInterval(polling);
+            polling = setInterval(() => {
+                fetch("http://127.0.0.1:8002/get_status")
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.violation_count > 0) {
+                            violationList.innerHTML = "❌ 미착용 항목:<br>" + data.labels.map(l => `- ${l}`).join("<br>");
+                            statusText.textContent = data.message;
+                            statusText.style.color = "red";
+                        } else {
+                            violationList.innerHTML = "✅ 모든 장비 착용";
+                            statusText.textContent = data.message;
+                            statusText.style.color = "green";
+                        }
+                    });
+            }, 2000);
+        }
+
+        taskForm.addEventListener("submit", function(e) {
+            e.preventDefault();
+            const selectedTask = taskSelect.value;
+            fetch("http://127.0.0.1:8002/set_task", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `task=${encodeURIComponent(selectedTask)}`
+            })
+            .then(res => res.json())
+            .then(data => {
+                console.log("작업 설정:", data);
+                videoStream.src = "http://127.0.0.1:8002/video_feed";
+                statusText.textContent = "감지 시작됨";
+                statusText.style.color = "green";
+                startPollingViolations();
+            })
+            .catch(err => {
+                console.error("작업 설정 실패:", err);
+                statusText.textContent = "❌ 감지 실패";
+                statusText.style.color = "red";
+            });
+        });
+    </script>
+</body>
+</html>

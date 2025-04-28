@@ -1,0 +1,11 @@
+[SafeSight 실행법]
+
+1. Docker 설치 필요
+2. run.bat 더블 클릭 (Windows)
+   또는 start.sh 실행 (Linux/Mac)
+
+포트:
+- 8000: Django 웹 UI
+- 8002: FastAPI 감지 서버
+
+문의: kms545487@gmail.com
