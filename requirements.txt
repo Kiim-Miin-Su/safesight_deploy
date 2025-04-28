@@ -1,9 +1,7 @@
-Django==4.2.2
 fastapi
 uvicorn
 ultralytics
 opencv-python-headless
-python-multipart
 opencv-python
 opencv-contrib-python
 ultralytics
