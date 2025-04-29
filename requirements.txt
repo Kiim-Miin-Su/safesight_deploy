@@ -1,5 +1,7 @@
 fastapi
 uvicorn
-python-multipart
-ultralytics
 opencv-python-headless
+ultralytics
+torch==2.1.2+cpu
+numpy==1.26.4
+-f https://download.pytorch.org/whl/cpu/torch_stable.html
