@@ -1,19 +1,16 @@
-FROM python:3.9-slim-bullseye
+FROM python:3.9-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 libglib2.0-0 && \
+RUN apt-get update && apt-get install -y \
+    libgl1 libglib2.0-0 ffmpeg && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-COPY ./app ./app
-COPY ./static ./static
-COPY ./templates ./templates
-COPY ./weights ./weights
-COPY requirements.txt .
+COPY . .
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --find-links https://download.pytorch.org/whl/cpu/ -r requirements.txt
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "pip install ultralytics && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
