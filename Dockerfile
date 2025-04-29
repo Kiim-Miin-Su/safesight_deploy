@@ -1,4 +1,12 @@
-FROM python:3.9
+FROM python:3.9-slim
+
+# 필요한 OS 패키지만 최소 설치
+RUN apt-get update && apt-get install -y \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
