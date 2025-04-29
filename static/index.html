@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <title>작업 분류별 미착용 장비 감지</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <h1>작업 분류별 미착용 장비 감지</h1>
+
+    <label for="task-select">작업 분류:</label>
+    <select id="task-select">
+        <option>고소작업</option>
+        <option>화학물질 취급 작업</option>
+        <option>용접 작업</option>
+        <option>전기 작업</option>
+        <option>중장비 작업</option>
+        <option>건설 일반</option>
+    </select>
+
+    <div class="camera-container">
+        <video id="video-capture" autoplay playsinline muted style="display:none;"></video>
+        <canvas id="overlay-canvas"></canvas>
+    </div>
+
+    <h2>미착용 리스트</h2>
+    <ul id="missing-list">
+        <li>아직 탐지 전입니다</li>
+    </ul>
+
+    <script src="/static/script.js"></script>
+</body>
+
+</html>
