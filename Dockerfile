@@ -12,6 +12,8 @@ RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir torch==2.0.1+cpu torchvision==0.15.2+cpu torchaudio==2.0.2+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html
 RUN pip install --no-cache-dir -r requirements.txt
 
+# 👉 weights 폴더도 같이 복사
+COPY ./weights ./weights
 COPY ./app ./app
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
