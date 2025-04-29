@@ -1,71 +1,71 @@
-const video = document.getElementById("video-capture");
-const canvas = document.getElementById("overlay-canvas");
-const ctx = canvas.getContext("2d");
-const missingList = document.getElementById("missing-list");
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const violationsList = document.getElementById('violations');
+const taskSelect = document.getElementById('task');
 
-async function setupCamera() {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    video.srcObject = stream;
-    await video.play();
+async function startCamera() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+    } catch (error) {
+        console.error("카메라 접근 실패:", error);
+    }
 }
 
-function captureFrame() {
-    const tempCanvas = document.createElement("canvas");
-    tempCanvas.width = video.videoWidth;
-    tempCanvas.height = video.videoHeight;
-    const tempCtx = tempCanvas.getContext("2d");
-    tempCtx.drawImage(video, 0, 0);
-    return new Promise(resolve => tempCanvas.toBlob(resolve, "image/jpeg"));
-}
-
-async function detectAndDraw() {
-    const task = document.getElementById("task-select").value;
-    const frame = await captureFrame();
-
-    const formData = new FormData();
-    formData.append("task", task);
-    formData.append("file", frame);
-
-    const response = await fetch("/detect", { method: "POST", body: formData });
-    const data = await response.json();
-
+async function sendFrame() {
+    const ctx = canvas.getContext('2d');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
 
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height); // 매 프레임 그려야 한다.
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+    const formData = new FormData();
+    formData.append('file', blob, 'frame.jpg');
+    formData.append('task', taskSelect.value);
 
-    missingList.innerHTML = "";
-    const totalMissing = new Set();
-
-    if (data.results.length === 0) {
-        missingList.innerHTML = "<li>아직 탐지 전입니다</li>";
-        return;
-    }
-
-    data.results.forEach(result => {
-        const [x1, y1, x2, y2] = result.bbox;
-        const missingItems = result.missing;
-
-        ctx.strokeStyle = "red";
-        ctx.lineWidth = 3;
-        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-
-        ctx.font = "20px Arial";
-        ctx.fillStyle = "red";
-        ctx.fillText(missingItems.join(", ") + " 미착용", x1, y1 - 10);
-
-        missingItems.forEach(item => totalMissing.add(item));
-    });
-
-    if (totalMissing.size === 0) {
-        missingList.innerHTML = "<li>모든 장비 착용 완료</li>";
-    } else {
-        totalMissing.forEach(item => {
-            missingList.innerHTML += `<li>${item} 미착용</li>`;
+    try {
+        const response = await fetch('/detect', {
+            method: 'POST',
+            body: formData
         });
+
+        const result = await response.json();
+
+        // 서버에서 받은 hex 인코딩 이미지를 base64로 변환
+        const hexString = result.image;
+        const base64String = btoa(
+            hexString.match(/.{1,2}/g)
+                .map(byte => String.fromCharCode(parseInt(byte, 16)))
+                .join('')
+        );
+
+        const img = new Image();
+        img.src = 'data:image/jpeg;base64,' + base64String;
+        img.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+        };
+
+        // 미착용 리스트 표시
+        violationsList.innerHTML = '';
+        if (result.violations.length > 0) {
+            result.violations.forEach(v => {
+                const li = document.createElement('li');
+                li.innerText = v;
+                violationsList.appendChild(li);
+            });
+        } else {
+            const li = document.createElement('li');
+            li.innerText = '모든 장비 착용 완료';
+            violationsList.appendChild(li);
+        }
+
+    } catch (error) {
+        console.error('서버 통신 오류:', error);
     }
 }
 
-setupCamera().then(() => {
-    setInterval(detectAndDraw, 2000);
-});
+startCamera();
+
+// 2초마다 서버에 프레임 전송
+setInterval(sendFrame, 2000);
