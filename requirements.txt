@@ -1,6 +1,10 @@
 fastapi
 uvicorn
 opencv-python-headless
+numpy==1.26.4
+pillow
+# 가볍게 설치 가능한 YOLO
 torch==2.1.2
+torchvision==0.16.2
 ultralytics==8.1.0
-numpy
+python-multipart
