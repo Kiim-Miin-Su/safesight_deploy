@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SafeSight Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        #output {
+            max-width: 100%;
+            height: auto;
+            margin-top: 20px;
+            border: 2px solid #ccc;
+        }
+        #violationsList {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 20px;
+        }
+        #violationsList li {
+            background: #ffe0e0;
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+            color: #d00;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>SafeSight Detection</h1>
+
+    <div>
+        <label for="task">Select Task:</label>
+        <select id="task">
+            <option value="highplace">Highplace Work</option>
+            <option value="welding">Welding</option>
+            <option value="electrical">Electrical</option>
+        </select>
+    </div>
+
+    <button id="startBtn" style="margin-top: 20px;">Start Detection</button>
+
+    <!-- 감지 결과 이미지 -->
+    <img id="output" alt="Detection Output" />
+
+    <!-- 위반 리스트 -->
+    <ul id="violationsList"></ul>
+
+    <!-- 비디오와 캔버스 숨김 처리 -->
+    <video id="video" autoplay playsinline style="display: none;"></video>
+    <canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
+
+    <script>
+        const video = document.getElementById("video");
+        const canvas = document.getElementById("canvas");
+        const output = document.getElementById("output");
+        const taskSelect = document.getElementById("task");
+        const violationsList = document.getElementById("violationsList");
+
+        let stream = null;
+        let detectInterval = null;
+
+        navigator.mediaDevices.getUserMedia({ video: true }).then(s => {
+            stream = s;
+            video.srcObject = stream;
+        });
+
+        document.getElementById("startBtn").addEventListener("click", () => {
+            if (detectInterval) return; // 이미 감지 중이면 무시
+            detectInterval = setInterval(sendFrame, 500); // 🔥 0.5초마다 감지
+        });
+
+        function sendFrame() {
+            const context = canvas.getContext("2d");
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            canvas.toBlob(blob => {
+                const formData = new FormData();
+                formData.append("file", blob, "frame.jpg");
+                formData.append("task", taskSelect.value);
+
+                fetch("/detect", {
+                    method: "POST",
+                    body: formData,
+                })
+                .then(res => res.json())
+                .then(data => {
+                    // 감지된 이미지를 출력
+                    const imageBytes = new Uint8Array(data.image.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+                    const blob = new Blob([imageBytes], { type: 'image/jpeg' });
+                    output.src = URL.createObjectURL(blob);
+
+                    // 미착용 리스트 업데이트
+                    violationsList.innerHTML = "";
+                    data.violations.forEach(item => {
+                        const li = document.createElement("li");
+                        li.textContent = `Missing: ${item}`;
+                        violationsList.appendChild(li);
+                    });
+                })
+                .catch(console.error);
+            }, "image/jpeg");
+        }
+    </script>
+</body>
+</html>

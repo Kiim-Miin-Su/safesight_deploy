@@ -1,64 +1,64 @@
 from ultralytics import YOLO
 import cv2
 
-# 모델 미리 로드
-helmet_model = YOLO("weights/helmet_best.pt")
-vest_model = YOLO("weights/vest_best.pt")
-goggles_model = YOLO("weights/goggles_best.pt")
-harness_model = YOLO("weights/harness_best.pt")
-gloves_model = YOLO("weights/gloves_best.pt")
-mask_model = YOLO("weights/mask_best.pt")
+# 모델 로딩
+models = {
+    "helmet": YOLO("weights/helmet_best.pt"),
+    "vest": YOLO("weights/vest_best.pt"),
+    "harness": YOLO("weights/harness_best.pt"),
+    "gloves": YOLO("weights/gloves_best.pt"),
+    "goggles": YOLO("weights/goggles_best.pt"),
+    "mask": YOLO("weights/mask_best.pt"),
+    "person": YOLO("weights/person_best.pt"),
+}
 
 # 작업별 필요한 장비
-TASK_EQUIPMENT_MAP = {
-    "고소작업": ["helmet", "vest", "harness"],
-    "화학물질 취급 작업": ["mask", "goggles", "gloves"],
-    "용접작업": ["helmet", "goggles", "gloves"],
+task_to_equipment = {
+    "highplace": ["helmet", "harness", "vest"],
+    "welding": ["goggles", "gloves", "mask"],
+    "electrical": ["helmet", "gloves"],
 }
 
-MODEL_DICT = {
-    "helmet": helmet_model,
-    "vest": vest_model,
-    "goggles": goggles_model,
-    "harness": harness_model,
-    "gloves": gloves_model,
-    "mask": mask_model,
-}
 
-# 감지 함수
-def detect_safety_violation(image, task):
-    violations = []
-    equipments = TASK_EQUIPMENT_MAP.get(task, [])
+def detect_safety_violation(image, task_name):
+    violation_boxes = []
+    required_items = task_to_equipment.get(task_name, [])
 
-    # 사람 먼저 감지
-    person_model = YOLO("weights/person_best.pt")
-    person_results = person_model(image, conf=0.5)[0]
-    person_boxes = [p for p in person_results.boxes.xyxy.cpu().numpy()]
+    person_result = models["person"](image)
+    people_boxes = person_result[0].boxes.xyxy.cpu().tolist()
 
-    output_image = image.copy()
+    detections = {}
+    for item in required_items:
+        result = models[item](image)
+        detections[item] = result[0].boxes.xyxy.cpu().tolist()
 
-    for pbox in person_boxes:
-        px1, py1, px2, py2 = map(int, pbox)
+    for person_box in people_boxes:
+        x1, y1, x2, y2 = map(int, person_box)
         missing_items = []
 
-        for equipment in equipments:
-            model = MODEL_DICT[equipment]
-            detections = model(image, conf=0.5)[0]
+        for item, boxes in detections.items():
             found = False
-            for dbox in detections.boxes.xyxy.cpu().numpy():
-                x1, y1, x2, y2 = map(int, dbox)
-                if px1 <= (x1+x2)//2 <= px2 and py1 <= (y1+y2)//2 <= py2:
+            for bx1, by1, bx2, by2 in boxes:
+                bx1, by1, bx2, by2 = map(int, (bx1, by1, bx2, by2))
+                if (bx1 >= x1 and by1 >= y1 and bx2 <= x2 and by2 <= y2):
                     found = True
                     break
             if not found:
-                missing_items.append(equipment)
+                missing_items.append(item)
 
         if missing_items:
-            label = ", ".join(missing_items) + " 미착용"
-            cv2.rectangle(output_image, (px1, py1), (px2, py2), (0, 0, 255), 2)
-            cv2.putText(output_image, label, (px1, py1 - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+            label = "no " + ", ".join(missing_items)
+            violation_boxes.append((x1, y1, x2, y2, label))
 
-            violations.append(label)
+    # 시각화
+    annotated = image.copy()
+    if violation_boxes:
+        # 여러 미착용자가 있어도 첫 번째만 빨간 박스
+        x1, y1, x2, y2, label = violation_boxes[0]
+        cv2.rectangle(annotated, (x1, y1), (x2, y2), (0, 0, 255), 3)
+        cv2.putText(
+            annotated, label, (x1, y1 - 10),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2
+        )
 
-    return output_image, violations
+    return annotated, [box[4] for box in violation_boxes]
