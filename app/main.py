@@ -1,8 +1,13 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from fastapi import FastAPI, Request, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from .yolov8_detector import detect_safety_violation
+
+from yolov8_detector import detect_safety_violation
 
 import cv2
 import numpy as np
@@ -10,7 +15,7 @@ import numpy as np
 app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory="templates")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -26,7 +31,6 @@ async def detect(file: UploadFile = File(...), task: str = Form(...)):
 
     results, violations = detect_safety_violation(img, task)
 
-    # 인코딩해서 감지된 이미지 다시 보내기
     _, encoded_img = cv2.imencode('.jpg', results)
     return JSONResponse(content={
         "violations": violations,
